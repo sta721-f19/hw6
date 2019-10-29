@@ -29,18 +29,19 @@ betatrue = c(4,2,0,0,0,-1,0,1.5, 0,0,0,1,0,.5,0,0,0,0,-1,1,4)
 #          int|    X1                            | X2     |X3
 # set the random seed so that we can replicate results. Update your seed to be your team number.
 
-set.seed(42)
+set.seed(7)
 
 # number of simulated data sets
 nsim = 100
 
 fname = rep("df", nsim)
-
+MSE.theo=rep(NA,nsim)
 # create 100 datasets
 for (i in 1:nsim) {
   Z = matrix(rnorm(n*10, 0, 1), ncol=10, nrow=n)
   X1 = cbind(Z, (Z[,1:5] %*% c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5)) +
              matrix(rnorm(n*5, 0, 1), ncol=5, nrow=n)))
+  tmp=c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5))
   X2 <- matrix(rnorm(n*4,0,1), ncol=4, nrow=n)
   X3 <- X2[,4]+rnorm(n,0,sd=0.1)
   X <- cbind(X1,X2,X3)
@@ -49,6 +50,8 @@ for (i in 1:nsim) {
   df = data.frame(Y, X)
   fname[i] = paste("df", as.character(i), sep="")
   save(df, file=fname[i])
+  XTX=t(X)%*%X
+  MSE.theo[i]=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
 }
 
 @
@@ -60,25 +63,43 @@ modest.  Of the 20 variables, only 8 are related to $Y$.
 
 \begin{enumerate}
   \item  Calculate the $\E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$, the expected MSE for OLS under the full model.  (should be review!)
+  <<theoretical MSE.OLS>>=
+XTX=t(X)%*%X
+MSE.theo=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
+@
+
+The expected MSE for OLS under ther full model is \Sexpr{round(mean(MSE.theo), 2)}.
   \item   For each simulation, the OLS coefficients are found and an observed $\MSE = (\hat{\beta}^{(s)} - \beta)^T(\hat{\beta}^{(s)} -  \beta)$ is computed for each of the $s$ simulated datasets.
 <<OLS, cache=TRUE>>= # hide code for submission
 MSE.OLS  = rep(NA,nsim)
-
-for( i in 1:nsim) {
+for(i in 1:nsim) {
   rm(df)
   load(fname[i])
   nk.ols = lm(Y ~ ., data=df)
   coef.ols = coef(nk.ols)
   MSE.OLS[i] = sum((betatrue - coef.ols)^2)
-#  print(c(i, MSE.OLS[i]))  for the truly bored student
+  #print(c(i, MSE.OLS[i])) # for the truly bored student
 }
+print(mean(MSE.OLS))
 @
 
 Does  the average of observed MSEs, \Sexpr{round(mean(MSE.OLS), 2)}, provide a good estimate  of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$? What does the distribution of observed MSE minus expected MSEs look like?   Do you think you should increase the number of simulated data sets?
+<<distribution of observed MSE>>= # hide code for submission
+hist(MSE.OLS-MSE.theo,breaks = 20)
+var(MSE.OLS)
+@
 
 \item For each of the data sets run lasso, ridge regression (lm.ridge from MASS or other), and the horseshoe (bhs from monomvn package on CRAN or other) to provide estimates of $\beta$  MSE, variance and squared bias for each simulated dataset; be careful about which methods standardize variables.
 
 <<ridge>>=
+library(glmnet)
+U=svd(X)$u
+Ys=t(U)%*%Y
+fit=glmnet(X,Y,alpha = 0,standardize = T)
+beta1.ridge=fit$beta
+fit2=glmnet(X,c(Ys,rep(0,30)),standardize = T,alpha=0)
+# SD=apply(X, 2,  function(x){sqrt(t(x)%*%x)})
+# SDX=X/matrix(rep(SD,nrow(X)),byrow = T,ncol=ncol(X))
 
 @
 
