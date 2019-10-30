@@ -36,7 +36,7 @@ nsim = 100
 
 fname = rep("df", nsim)
 MSE.theo=rep(NA,nsim)
-BETA.LASSO=matrix(0,nrow = nsim,ncol = 1+ncol(X))
+
 # create 100 datasets
 for (i in 1:nsim) {
   Z = matrix(rnorm(n*10, 0, 1), ncol=10, nrow=n)
@@ -104,16 +104,22 @@ fit2=glmnet(X,c(Ys,rep(0,30)),standardize = T,alpha=0)
 @
 
 <<lasso>>=
-cvfit <- cv.glmnet(X, Y, standardize=T)
-beta.lasso=coef(cvfit2, s = "lambda.1se")
+BETA.LASSO=matrix(0,nrow = nsim,ncol = 21)
+MSE.LASSO=rep(0,nsim)
+for(i in 1:nsim) {
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  cvfit <- cv.glmnet(as.matrix(X), Y, standardize=T)
+  beta.lasso=as.matrix(coef(cvfit2, s = "lambda.1se"))
+  BETA.LASSO[i,]=beta.lasso
+  MSE.LASSO[i] = sum((betatrue - beta.lasso)^2)
+}
+
 @
 
-Note that the 9th row has the closest values of Df and Cp, so we choose its corresponding coefficients. 
-<<lasso>>=
-beta=coef(fit0)[9,]#this one is chosen because line 8 (9th row) of summary have the closest df and Cp
-# Yhat=Xs%*%matrix(co,ncol = 1)
-plot(Y,Yhat) #looks correct
-@
+
 
 <<horseshoe>>=
 
