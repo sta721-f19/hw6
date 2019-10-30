@@ -36,6 +36,7 @@ nsim = 100
 
 fname = rep("df", nsim)
 MSE.theo=rep(NA,nsim)
+BETA.LASSO=matrix(0,nrow = nsim,ncol = 1+ncol(X))
 # create 100 datasets
 for (i in 1:nsim) {
   Z = matrix(rnorm(n*10, 0, 1), ncol=10, nrow=n)
@@ -52,8 +53,10 @@ for (i in 1:nsim) {
   save(df, file=fname[i])
   XTX=t(X)%*%X
   MSE.theo[i]=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
+  
+  
 }
-
+round(mean(MSE.theo), 2)
 @
 
 
@@ -63,10 +66,7 @@ modest.  Of the 20 variables, only 8 are related to $Y$.
 
 \begin{enumerate}
   \item  Calculate the $\E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$, the expected MSE for OLS under the full model.  (should be review!)
-  <<theoretical MSE.OLS>>=
-XTX=t(X)%*%X
-MSE.theo=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
-@
+
 
 The expected MSE for OLS under ther full model is \Sexpr{round(mean(MSE.theo), 2)}.
   \item   For each simulation, the OLS coefficients are found and an observed $\MSE = (\hat{\beta}^{(s)} - \beta)^T(\hat{\beta}^{(s)} -  \beta)$ is computed for each of the $s$ simulated datasets.
@@ -80,13 +80,13 @@ for(i in 1:nsim) {
   MSE.OLS[i] = sum((betatrue - coef.ols)^2)
   #print(c(i, MSE.OLS[i])) # for the truly bored student
 }
-print(mean(MSE.OLS))
+print(c(mean(MSE.OLS),mean(MSE.theo)))
 @
 
 Does  the average of observed MSEs, \Sexpr{round(mean(MSE.OLS), 2)}, provide a good estimate  of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$? What does the distribution of observed MSE minus expected MSEs look like?   Do you think you should increase the number of simulated data sets?
 <<distribution of observed MSE>>= # hide code for submission
 hist(MSE.OLS-MSE.theo,breaks = 20)
-var(MSE.OLS)
+var(MSE.OLS-MSE.theo)
 @
 
 \item For each of the data sets run lasso, ridge regression (lm.ridge from MASS or other), and the horseshoe (bhs from monomvn package on CRAN or other) to provide estimates of $\beta$  MSE, variance and squared bias for each simulated dataset; be careful about which methods standardize variables.
@@ -104,7 +104,15 @@ fit2=glmnet(X,c(Ys,rep(0,30)),standardize = T,alpha=0)
 @
 
 <<lasso>>=
+cvfit <- cv.glmnet(X, Y, standardize=T)
+beta.lasso=coef(cvfit2, s = "lambda.1se")
+@
 
+Note that the 9th row has the closest values of Df and Cp, so we choose its corresponding coefficients. 
+<<lasso>>=
+beta=coef(fit0)[9,]#this one is chosen because line 8 (9th row) of summary have the closest df and Cp
+# Yhat=Xs%*%matrix(co,ncol = 1)
+plot(Y,Yhat) #looks correct
 @
 
 <<horseshoe>>=
