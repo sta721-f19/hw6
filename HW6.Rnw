@@ -93,14 +93,19 @@ var(MSE.OLS-MSE.theo)
 
 <<ridge>>=
 library(glmnet)
-U=svd(X)$u
-Ys=t(U)%*%Y
-fit=glmnet(X,Y,alpha = 0,standardize = T)
-beta1.ridge=fit$beta
-fit2=glmnet(X,c(Ys,rep(0,30)),standardize = T,alpha=0)
-# SD=apply(X, 2,  function(x){sqrt(t(x)%*%x)})
-# SDX=X/matrix(rep(SD,nrow(X)),byrow = T,ncol=ncol(X))
-
+BETA.RIDGE=matrix(0,nrow = nsim,ncol = 21)
+MSE.RIDGE=rep(0,nsim)
+for(i in 1:nsim) {
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  cvfit <- cv.glmnet(as.matrix(X), Y, standardize=T,alpha = 0)
+  beta.ridge=as.matrix(coef(cvfit, s = "lambda.1se"))
+  BETA.RIDGE[i,]=beta.ridge
+  MSE.RIDGE[i] = sum((betatrue - beta.ridge)^2)
+}
+print(mean(MSE.RIDGE))
 @
 
 <<lasso>>=
@@ -112,16 +117,39 @@ for(i in 1:nsim) {
   X=df[,-1]
   Y=df[,1]
   cvfit <- cv.glmnet(as.matrix(X), Y, standardize=T)
-  beta.lasso=as.matrix(coef(cvfit2, s = "lambda.1se"))
+  beta.lasso=as.matrix(coef(cvfit, s = "lambda.1se"))
   BETA.LASSO[i,]=beta.lasso
   MSE.LASSO[i] = sum((betatrue - beta.lasso)^2)
 }
-
+print(mean(MSE.LASSO))
 @
 
 
 
-<<horseshoe>>=
+<<horseshoe,echo=FALSE>>=
+library(monomvn)
+BETA.HS=list()
+MSE.HS=rep(0,nsim)
+for(i in 1:20) {
+  print(i)
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  hs=bhs(X, Y,normalize = T)
+  beta.hs=hs$beta[-1,]#the first row is not a sample
+  BETA.HS[[i]]=cbind(hs$mu,beta.hs)
+  SE=apply(beta.hs, 1, function(x){sum((betatrue - x)^2)})
+  MSE.HS[i] = mean(SE)
+}
+print(mean(MSE.HS))
+
+plot(betatrue,type='l')
+lines(c(mean(hs$mu),apply(beta.hs,2,function(x){mean(x)})),col='green',cex=0.5,pch=15)
+lines(betatrue,betatrue)
+points(betatrue,beta.lasso,col='red',cex=0.5,pch=15)
+points(betatrue,beta.ridge,col='blue',cex=0.5,pch=15)
+
 
 @
 
