@@ -35,7 +35,6 @@ set.seed(7)
 nsim = 100
 
 fname = rep("df", nsim)
-MSE.theo=rep(NA,nsim)
 
 # create 100 datasets
 for (i in 1:nsim) {
@@ -51,12 +50,9 @@ for (i in 1:nsim) {
   df = data.frame(Y, X)
   fname[i] = paste("df", as.character(i), sep="")
   save(df, file=fname[i])
-  XTX=t(X)%*%X
-  MSE.theo[i]=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
-  
   
 }
-round(mean(MSE.theo), 2)
+
 @
 
 
@@ -72,22 +68,30 @@ The expected MSE for OLS under ther full model is \Sexpr{round(mean(MSE.theo), 2
   \item   For each simulation, the OLS coefficients are found and an observed $\MSE = (\hat{\beta}^{(s)} - \beta)^T(\hat{\beta}^{(s)} -  \beta)$ is computed for each of the $s$ simulated datasets.
 <<OLS, cache=TRUE>>= # hide code for submission
 MSE.OLS  = rep(NA,nsim)
+MSE.theo = rep(NA,nsim)
 for(i in 1:nsim) {
   rm(df)
   load(fname[i])
+  X=as.matrix(df[,-1])
+  Y=df[,1]
   nk.ols = lm(Y ~ ., data=df)
   coef.ols = coef(nk.ols)
   MSE.OLS[i] = sum((betatrue - coef.ols)^2)
   #print(c(i, MSE.OLS[i])) # for the truly bored student
+  XTX=t(X)%*%X
+  MSE.theo[i]=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
 }
 print(c(mean(MSE.OLS),mean(MSE.theo)))
 @
 
 Does  the average of observed MSEs, \Sexpr{round(mean(MSE.OLS), 2)}, provide a good estimate  of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$? What does the distribution of observed MSE minus expected MSEs look like?   Do you think you should increase the number of simulated data sets?
+
 <<distribution of observed MSE>>= # hide code for submission
-hist(MSE.OLS-MSE.theo,breaks = 20)
-var(MSE.OLS-MSE.theo)
+diff=MSE.OLS-MSE.theo
+hist(diff,breaks = 30,main = "Histogram of observed MSE minus expected MSE")
 @
+
+The average of observed MSEs is not a good estimate of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$: it underestimates $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$. From the histogram of observed MSE minus expected MSE, we can see that the difference is right skewed and centered at negative values. We should increase the number of simulated data sets, because as the number of simulated datasets grows, the bias will approach 0.
 
 \item For each of the data sets run lasso, ridge regression (lm.ridge from MASS or other), and the horseshoe (bhs from monomvn package on CRAN or other) to provide estimates of $\beta$  MSE, variance and squared bias for each simulated dataset; be careful about which methods standardize variables.
 
