@@ -7,10 +7,10 @@
 
 \begin{document}
 \title{Homework 5: STA 721 Fall19}
-\author{Your Names}
+\author{Zhuoqun Wang}
 \date{\today}
 \maketitle
-
+test
 You may work in groups of two for this assignment.  Both team members should make commits on github and contribute equally to the project. Please look at before class  in case there are questions or clarifications needed (or post on Piazza). This complete assignment should be completed using knitr/Sweave.
 
 \begin{enumerate}
@@ -41,7 +41,7 @@ for (i in 1:nsim) {
   Z = matrix(rnorm(n*10, 0, 1), ncol=10, nrow=n)
   X1 = cbind(Z, (Z[,1:5] %*% c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5)) +
              matrix(rnorm(n*5, 0, 1), ncol=5, nrow=n)))
-  tmp=c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5))
+  #tmp=c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5))
   X2 <- matrix(rnorm(n*4,0,1), ncol=4, nrow=n)
   X3 <- X2[,4]+rnorm(n,0,sd=0.1)
   X <- cbind(X1,X2,X3)
