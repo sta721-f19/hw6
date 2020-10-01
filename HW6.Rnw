@@ -7,10 +7,10 @@
 
 \begin{document}
 \title{Homework 5: STA 721 Fall19}
-\author{Your Names}
+\author{Zhuoqun Wang}
 \date{\today}
 \maketitle
-
+test
 You may work in groups of two for this assignment.  Both team members should make commits on github and contribute equally to the project. Please look at before class  in case there are questions or clarifications needed (or post on Piazza). This complete assignment should be completed using knitr/Sweave.
 
 \begin{enumerate}
@@ -29,7 +29,7 @@ betatrue = c(4,2,0,0,0,-1,0,1.5, 0,0,0,1,0,.5,0,0,0,0,-1,1,4)
 #          int|    X1                            | X2     |X3
 # set the random seed so that we can replicate results. Update your seed to be your team number.
 
-set.seed(42)
+set.seed(7)
 
 # number of simulated data sets
 nsim = 100
@@ -41,6 +41,7 @@ for (i in 1:nsim) {
   Z = matrix(rnorm(n*10, 0, 1), ncol=10, nrow=n)
   X1 = cbind(Z, (Z[,1:5] %*% c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5)) +
              matrix(rnorm(n*5, 0, 1), ncol=5, nrow=n)))
+  #tmp=c(.3, .5, .7, .9, 1.1) %*% t(rep(1,5))
   X2 <- matrix(rnorm(n*4,0,1), ncol=4, nrow=n)
   X3 <- X2[,4]+rnorm(n,0,sd=0.1)
   X <- cbind(X1,X2,X3)
@@ -49,6 +50,7 @@ for (i in 1:nsim) {
   df = data.frame(Y, X)
   fname[i] = paste("df", as.character(i), sep="")
   save(df, file=fname[i])
+  
 }
 
 @
@@ -60,33 +62,98 @@ modest.  Of the 20 variables, only 8 are related to $Y$.
 
 \begin{enumerate}
   \item  Calculate the $\E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$, the expected MSE for OLS under the full model.  (should be review!)
+
+
+The expected MSE for OLS under ther full model is \Sexpr{round(mean(MSE.theo), 2)}.
   \item   For each simulation, the OLS coefficients are found and an observed $\MSE = (\hat{\beta}^{(s)} - \beta)^T(\hat{\beta}^{(s)} -  \beta)$ is computed for each of the $s$ simulated datasets.
 <<OLS, cache=TRUE>>= # hide code for submission
 MSE.OLS  = rep(NA,nsim)
-
-for( i in 1:nsim) {
+MSE.theo = rep(NA,nsim)
+for(i in 1:nsim) {
   rm(df)
   load(fname[i])
+  X=as.matrix(df[,-1])
+  Y=df[,1]
   nk.ols = lm(Y ~ ., data=df)
   coef.ols = coef(nk.ols)
   MSE.OLS[i] = sum((betatrue - coef.ols)^2)
-#  print(c(i, MSE.OLS[i]))  for the truly bored student
+  #print(c(i, MSE.OLS[i])) # for the truly bored student
+  XTX=t(X)%*%X
+  MSE.theo[i]=sigma^2*sum(1/(eigen(XTX,only.values = TRUE)$values))
 }
+print(c(mean(MSE.OLS),mean(MSE.theo)))
 @
 
 Does  the average of observed MSEs, \Sexpr{round(mean(MSE.OLS), 2)}, provide a good estimate  of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$? What does the distribution of observed MSE minus expected MSEs look like?   Do you think you should increase the number of simulated data sets?
 
+<<distribution of observed MSE>>= # hide code for submission
+diff=MSE.OLS-MSE.theo
+hist(diff,breaks = 30,main = "Histogram of observed MSE minus expected MSE")
+@
+
+The average of observed MSEs is not a good estimate of the average of $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$: it underestimates $E[(\hat{\beta} - \beta)^T(\hat{\beta} - \beta)]$. From the histogram of observed MSE minus expected MSE, we can see that the difference is right skewed and centered at negative values. We should increase the number of simulated data sets, because as the number of simulated datasets grows, the bias will approach 0.
+
 \item For each of the data sets run lasso, ridge regression (lm.ridge from MASS or other), and the horseshoe (bhs from monomvn package on CRAN or other) to provide estimates of $\beta$  MSE, variance and squared bias for each simulated dataset; be careful about which methods standardize variables.
 
 <<ridge>>=
-
+library(glmnet)
+BETA.RIDGE=matrix(0,nrow = nsim,ncol = 21)
+MSE.RIDGE=rep(0,nsim)
+for(i in 1:nsim) {
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  cvfit <- cv.glmnet(as.matrix(X), Y, standardize=T,alpha = 0)
+  beta.ridge=as.matrix(coef(cvfit, s = "lambda.1se"))
+  BETA.RIDGE[i,]=beta.ridge
+  MSE.RIDGE[i] = sum((betatrue - beta.ridge)^2)
+}
+print(mean(MSE.RIDGE))
 @
 
 <<lasso>>=
-
+BETA.LASSO=matrix(0,nrow = nsim,ncol = 21)
+MSE.LASSO=rep(0,nsim)
+for(i in 1:nsim) {
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  cvfit <- cv.glmnet(as.matrix(X), Y, standardize=T)
+  beta.lasso=as.matrix(coef(cvfit, s = "lambda.1se"))
+  BETA.LASSO[i,]=beta.lasso
+  MSE.LASSO[i] = sum((betatrue - beta.lasso)^2)
+}
+print(mean(MSE.LASSO))
 @
 
-<<horseshoe>>=
+
+
+<<horseshoe,echo=FALSE>>=
+library(monomvn)
+BETA.HS=list()
+MSE.HS=rep(0,nsim)
+for(i in 1:20) {
+  print(i)
+  rm(df)
+  load(fname[i])
+  X=df[,-1]
+  Y=df[,1]
+  hs=bhs(X, Y,normalize = T)
+  beta.hs=hs$beta[-1,]#the first row is not a sample
+  BETA.HS[[i]]=cbind(hs$mu,beta.hs)
+  SE=apply(beta.hs, 1, function(x){sum((betatrue - x)^2)})
+  MSE.HS[i] = mean(SE)
+}
+print(mean(MSE.HS))
+
+plot(betatrue,type='l')
+lines(c(mean(hs$mu),apply(beta.hs,2,function(x){mean(x)})),col='green',cex=0.5,pch=15)
+lines(betatrue,betatrue)
+points(betatrue,beta.lasso,col='red',cex=0.5,pch=15)
+points(betatrue,beta.ridge,col='blue',cex=0.5,pch=15)
+
 
 @
 
